@@ -1,0 +1,127 @@
+[PC 공통]
+
+1. IP 고정 (NAT - Bridge 방식)
+ -1) ifconfig로 enp0s8 ip확인
+ -2) vi /etc/network/interfaces 에서 ip고정
+     auto enp0s8
+     iface enp0s8 inet static
+     address 192.168.22.x
+     netmask 255.255.255.0
+     network 192.168.22.0
+ -3) ping으로 통신 확인
+
+2. vi /etc/hostname 설정
+ master.hadoop.com - 세화
+ secondary.hadoop.com - 유경
+ slave1.hadoop.com - 찬익
+ slave2.hadoop.com - 태환
+
+3. vi /etc/hosts 설정
+ 192.168.22.x	master.hadoop.com
+ 192.168.22.x	secondary.hadoop.com
+ 192.168.22.x	slave1.hadoop.com
+ 192.168.22.x	slave2.hadoop.com
+
+4. reboot
+
+5. openssh-server 설치
+ sudo apt-get install openssh-server
+
+6. root 권한 제한 해제
+ vi /etc/ssh/sshd_config
+ - PermissionRootLogin -> yes로 변경
+ (※반드시 reboot 할 것!)
+
+7. root password 무조건 설정할 것!!!
+ sudo passwd root
+ -> 설정
+---------------------------------------------------------------------------
+[Master 만]
+
+8. ssh key 생성
+ ssh-keygen -t rsa
+ cat /root/.ssh/id_rsa.pub >> /root/.ssh/authorized_keys
+
+
+9. host들에게 키 복사
+ ssh-copy-id -i /root/.ssh/id_rsa.pub root@secondary.hadoop.com
+ ssh-copy-id -i /root/.ssh/id_rsa.pub root@slave1.hadoop.com
+ ssh-copy-id -i /root/.ssh/id_rsa.pub root@slave2.hadoop.com
+
+10. ssh 접속확인
+ ssh secondary.hadoop.com
+ ssh slave1.hadoop.com
+ ssh slave2.hadoop.com
+
+11. ssh 접속후 NTP 설치 (master, ssh로 나머지 접속 후 설치)
+ apt-get install ntp
+ update-rc.d ntp defaults
+
+12. id 접근권한 주기
+ chmod 700 ~/.ssh/
+ chmod 600 ~/.ssh/authorized_keys
+
+13. ambari 설치
+ wget -O /etc/apt/sources.list.d/ambari.list http://public-repo-1.hortonworks.com/ambari/ubuntu16/2.x/updates/2.7.1.0/ambari.list
+ apt-key adv --recv-keys --keyserver keyserver.ubuntu.com B9733A7A07513CAD
+ apt-get update
+
+14. ambari 패키지 확인
+ apt-cache showpkg ambari-server
+ apt-cache showpkg ambari-agent
+ apt-cache showpkg ambari-metrics-assembly
+
+15. ambari-server 설치
+ apt-get install ambari-server
+
+16. ambari-server 설정
+ ambari-server setup
+ 맨처음 - n
+ 데이터베이스 설정 - 반드시 n 누를것 (이미 DB 깔려있는 경우 y 누를것)
+ 나머지는 y
+17. ambari 서버 시작
+ ambari-server start
+
+18. Firefox로 ambari 접속
+ 192.168.22.x:8080 한 후 admin/admin 으로 로그인
+
+19. 클러스터 구성하면 됨~~~
+ YARN, MapReduce, Zookeeper, Hive, Spark, Zeppelin notebook 설치
+
+ -[마주친 에러]
+ -1. HDFS 설치 에러 - 에러메세지 확인 후 dpkg --configure -a 치라는 소리 있으면 치면 해결
+ -2. Hive Client 설치 에러 - JDBC 경로 설정하면 됨 ambari-server setup --jdbc-db=mysql --jdbc-driver=/usr/share/java/mysql-connector-java.jar
+ -3. Yarn 프로세스 죽음 - Master에 HBase 안깔아서 생긴 에러 -> Stack and Versions 에서 HBase 설치
+
+20. Ambari 클러스터 구성
+ -1) 클러스터 이름 등록 - ex) team05_hadoop_prj
+ -2) version 설정 - 제일 위의 버전 설정 후 NEXT
+ -3) 
+    - host name 등록
+    master.hadoop.com
+    secondary.hadoop.com
+    slave1.hadoop.com
+    slave2.hadoop.com
+    - ssh private key 설정
+    cat /root/.ssh/id_rsa
+    ----BEGIN PRIVATE KEY---- ~ ----END PRIVATE KEY ---- 까지 전부 복사 후 붙여넣기
+ -4) Confirm Hosts
+    등록 다 되면 NEXT
+ -5) 서비스 등록
+    HDFS - 무조건 설치됨
+    YARN+MapReduce2
+    Tez
+    Hive
+    HBase
+    ZooKeeper
+    Infra Solr
+    Ambari Metrics
+    Atlas
+    Kafka
+    Spark2
+    Zeppelin Notebook
+  -6) Assign Masters
+    기본으로 Ambari가 잡아주긴 하는데, 원하는 설정과 다를 수 있으므로 원하는대로 변경 후 NEXT
+  -7) Assign Slaves and Clients
+    원하는대로 구성
+     
